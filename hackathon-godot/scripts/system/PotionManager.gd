@@ -5,6 +5,7 @@ class_name PotionManager   # 이 스크립트를 "PotionManager"라는 이름으
 signal potion_craft_success(potion_name: String)   # 포션 제작 성공 시 포션 이름을 전달
 signal potion_craft_fail                           # 포션 제작 실패 시 알림
 signal ingredient_added(ingredient_name: String, tray_size: int) # 재료 추가 시 (재료 이름, 현재 트레이 크기) 전달
+signal ingredient_removed(ingredient_name: String, tray_size: int, index: int) # ← [추가] 트레이에서 재료 제거 시 알림
 signal tray_cleared                                # 트레이 초기화 시 알림
 
 # ===== 상태 변수 =====
@@ -64,6 +65,20 @@ func add_ingredient(ingredient_name: String) -> void:
     emit_signal("ingredient_added", ingredient_name, current_ingredients.size())
 
 # --------------------------
+# 재료 제거 (트레이 슬롯 클릭)
+# --------------------------
+func remove_ingredient_at(index: int) -> bool:
+    # 인덱스 유효성 검사
+    if index < 0 or index >= current_ingredients.size():
+        return false
+    # 제거 수행
+    var removed := current_ingredients[index]
+    current_ingredients.remove_at(index)
+    # 제거되었음을 시그널로 알림 (UI 갱신 등에 사용)
+    emit_signal("ingredient_removed", removed, current_ingredients.size(), index)
+    return true
+
+# --------------------------
 # 트레이 비우기
 # --------------------------
 func clear_tray() -> void:
@@ -71,6 +86,12 @@ func clear_tray() -> void:
     current_ingredients.clear()
     # 트레이가 비워졌음을 알림
     emit_signal("tray_cleared")
+
+# --------------------------
+# 현재 트레이 상태 읽기 (UI용 헬퍼)
+# --------------------------
+func get_current_ingredients() -> Array[String]:
+    return current_ingredients.duplicate()
 
 # --------------------------
 # 포션 제작 및 판정
