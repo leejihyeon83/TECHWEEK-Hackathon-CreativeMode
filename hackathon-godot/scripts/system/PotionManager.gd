@@ -1,98 +1,98 @@
 extends Node
-class_name PotionManager
+class_name PotionManager   # 이 스크립트를 "PotionManager"라는 이름으로 등록 (다른 곳에서 편하게 사용 가능)
 
 # ===== 시그널 정의 =====
-signal potion_craft_success(potion_name: String)   # 포션 제작 성공 시 포션 이름 전달
+signal potion_craft_success(potion_name: String)   # 포션 제작 성공 시 포션 이름을 전달
 signal potion_craft_fail                           # 포션 제작 실패 시 알림
-signal ingredient_added(ingredient_name: String, tray_size: int) # 재료 추가 시 알림
+signal ingredient_added(ingredient_name: String, tray_size: int) # 재료 추가 시 (재료 이름, 현재 트레이 크기) 전달
 signal tray_cleared                                # 트레이 초기화 시 알림
 
 # ===== 상태 변수 =====
 var current_ingredients: Array[String] = []  # 현재 트레이에 담긴 재료들
-const TRAY_CAPACITY := 2                     # 트레이 최대 용량
+const TRAY_CAPACITY := 2                     # 트레이 최대 용량 (재료 2개까지만 담을 수 있음)
 
-var recipes: Dictionary = {}                 # JSON에서 불러온 포션 레시피 데이터
-
+var recipes: Dictionary = {}                 # JSON에서 불러온 포션 레시피 데이터 저장
 const RECIPES_PATH := "res://resources/recipes.json"  # 레시피 JSON 경로
-
 
 # --------------------------
 # 초기화
 # --------------------------
 func _ready() -> void:
-    # 게임 시작 시 레시피 불러오고 트레이 초기화
+    # 노드가 준비되면 실행됨
+    # 1) JSON에서 레시피 불러오기
+    # 2) 트레이 초기화
     load_recipes()
     clear_tray()
-
 
 # --------------------------
 # 레시피 로드
 # --------------------------
 func load_recipes() -> void:
+    # 레시피 JSON 파일이 없으면 경고 출력
     if not FileAccess.file_exists(RECIPES_PATH):
         push_warning("recipes.json not found at %s" % RECIPES_PATH)
         return
 
+    # 파일 열기 (읽기 전용 모드)
     var file := FileAccess.open(RECIPES_PATH, FileAccess.READ)
     if file:
-        var data: Variant = JSON.parse_string(file.get_as_text())  # ⬅️ 타입 명시
+        # 파일 내용을 문자열로 읽고 JSON으로 파싱
+        var data = JSON.parse_string(file.get_as_text())
+
+        # 파싱 결과가 Dictionary 형태라면 recipes에 저장
         if typeof(data) == TYPE_DICTIONARY:
-            recipes = data as Dictionary                            # ⬅️ 캐스팅(선택)
+            recipes = data as Dictionary
         else:
+            # JSON 구조가 잘못된 경우
             push_warning("Invalid format in recipes.json")
     else:
+        # 파일 열기 실패
         push_warning("Failed to open recipes.json")
-
 
 # --------------------------
 # 재료 추가
 # --------------------------
 func add_ingredient(ingredient_name: String) -> void:
-    # 트레이 용량이 다 찼으면 무시
+    # 트레이 용량이 다 찼으면 재료를 더 넣을 수 없음
     if current_ingredients.size() >= TRAY_CAPACITY:
         return
     
     # 재료 추가
     current_ingredients.append(ingredient_name)
-    # 재료 추가됨을 알림 (UI 업데이트 등)
+    
+    # 재료가 추가되었음을 시그널로 알림 (UI 갱신 등에 사용)
     emit_signal("ingredient_added", ingredient_name, current_ingredients.size())
-
 
 # --------------------------
 # 트레이 비우기
 # --------------------------
 func clear_tray() -> void:
-    # 현재 재료 전부 제거
+    # 현재 담긴 재료를 모두 제거
     current_ingredients.clear()
     # 트레이가 비워졌음을 알림
     emit_signal("tray_cleared")
 
-
-# --------------------------
-# 포션 제작 및 판정
-# --------------------------
 # --------------------------
 # 포션 제작 및 판정
 # --------------------------
 func craft_potion() -> void:
-    # 트레이가 비어 있으면 제작 실패
+    # 트레이가 비어있으면 제작 실패
     if current_ingredients.is_empty():
         emit_signal("potion_craft_fail")
         clear_tray()
         return
 
-    # 현재 재료들을 "_"로 이어붙여 키 생성
+    # 현재 재료 배열을 "_"로 이어붙여서 키를 만듦
     # 예: ["Red", "Blue"] -> "Red_Blue"
-    var key: String = current_ingredients.join("_") 
+    var key: String = "_".join(current_ingredients)
 
-    # 레시피에 해당 키가 존재하면 제작 성공
+    # 레시피에 해당 키가 존재하면 성공
     if recipes.has(key):
-        # 4.0에서는 String() 캐스팅보다 타입 추론이 권장되나, 명시적으로 유지 가능
-        var potion_name: String = recipes[key] 
+        var potion_name := String(recipes[key])
         emit_signal("potion_craft_success", potion_name)
     else:
-        # 해당 조합이 없으면 제작 실패
+        # 레시피에 없는 조합이면 실패
         emit_signal("potion_craft_fail")
 
-    # 제작 후 트레이는 항상 비움
+    # 제작 후에는 항상 트레이를 비움
     clear_tray()
