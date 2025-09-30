@@ -1,0 +1,195 @@
+[gd_scene load_steps=12 format=3 uid="uid://q8yklu6l3k5x"]
+
+[ext_resource type="Texture2D" uid="uid://crji0t6mtg4gv" path="res://assets/Art/02_Backgrounds/background_play_1.jpg" id="1_6ytau"]
+[ext_resource type="Texture2D" uid="uid://c38ih1h3ukdi1" path="res://assets/Art/03_UI/UI_empty_button.png" id="2_vijgj"]
+[ext_resource type="Texture2D" uid="uid://bf7mv6a6na1n4" path="res://assets/Art/03_UI/UI_pause_button.png" id="3_pynjx"]
+[ext_resource type="Texture2D" uid="uid://dndy4qqnrwt2i" path="res://assets/Art/01_Characters/Character_ (1).png" id="4_yrli1"]
+[ext_resource type="Texture2D" uid="uid://dyq5eu61ru13w" path="res://assets/Art/03_UI/UI_speech bubble_2.png" id="5_j40tv"]
+[ext_resource type="Texture2D" uid="uid://cwv6kpr741n51" path="res://assets/Art/04_Items/magic_cauldron.png" id="6_6pl24"]
+[ext_resource type="Texture2D" uid="uid://coc4x6of7egvj" path="res://assets/Art/03_UI/UI_rolling_paper.png" id="7_pynjx"]
+[ext_resource type="Texture2D" uid="uid://cech0qu0i2iwf" path="res://assets/Art/03_UI/UI_tray_3.png" id="7_w22tq"]
+[ext_resource type="Texture2D" uid="uid://bjiixrg8ghlee" path="res://assets/Art/04_Items/potion_lime.png" id="9_j40tv"]
+[ext_resource type="Texture2D" uid="uid://w2ip3li3qpho" path="res://assets/Art/03_UI/UI_check_button_2.png" id="9_yrli1"]
+[ext_resource type="Texture2D" uid="uid://cl2lm1ote8j8p" path="res://assets/Art/04_Items/potion_blue.png" id="10_6pl24"]
+
+[node name="GameScene" type="Control"]
+layout_mode = 3
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_6ytau")
+expand_mode = 3
+
+[node name="HUD_Layer" type="CanvasLayer" parent="."]
+
+[node name="TopBar" type="HBoxContainer" parent="HUD_Layer"]
+anchors_preset = -1
+anchor_left = 0.014
+anchor_top = 0.014
+anchor_right = 1.0
+anchor_bottom = 0.081
+offset_left = 8.0
+offset_right = 4950.0
+offset_bottom = -324.0
+grow_horizontal = 2
+scale = Vector2(0.2, 0.2)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HUD_Layer/TopBar"]
+layout_mode = 2
+
+[node name="Coin_Panel" type="TextureRect" parent="HUD_Layer/TopBar/VBoxContainer"]
+layout_mode = 2
+texture = ExtResource("2_vijgj")
+
+[node name="Timer_Panel" type="TextureRect" parent="HUD_Layer/TopBar/VBoxContainer"]
+layout_mode = 2
+texture = ExtResource("2_vijgj")
+
+[node name="Spacer" type="Control" parent="HUD_Layer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PauseButton" type="TextureButton" parent="HUD_Layer/TopBar"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture_normal = ExtResource("3_pynjx")
+stretch_mode = 5
+
+[node name="InteractionArea" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CustomerSprite" type="Sprite2D" parent="InteractionArea"]
+position = Vector2(400, 300)
+scale = Vector2(0.4, 0.4)
+texture = ExtResource("4_yrli1")
+
+[node name="BubbleArea" type="TextureRect" parent="InteractionArea"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.379
+anchor_right = 0.392
+offset_right = 40.0
+offset_bottom = 40.0
+scale = Vector2(0.4, 0.4)
+texture = ExtResource("5_j40tv")
+stretch_mode = 5
+
+[node name="PotArea" type="TextureRect" parent="InteractionArea"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.865
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_right = 277.0
+offset_bottom = 380.0
+grow_horizontal = 2
+grow_vertical = 0
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("6_6pl24")
+
+[node name="RecipeButton" type="TextureButton" parent="InteractionArea"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -170.0
+offset_top = -102.0
+offset_right = 957.0
+offset_bottom = 491.0
+grow_horizontal = 0
+grow_vertical = 0
+rotation = -0.62831855
+scale = Vector2(0.2, 0.2)
+texture_normal = ExtResource("7_pynjx")
+
+[node name="CraftingUI" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="TrayBackground" type="TextureRect" parent="CraftingUI"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.98
+anchor_bottom = 1.0
+offset_left = -204.79999
+offset_top = -145.0
+offset_right = 204.79993
+offset_bottom = 111.0
+grow_horizontal = 2
+grow_vertical = 0
+scale = Vector2(0.4, 0.4)
+texture = ExtResource("7_w22tq")
+
+[node name="Slot1_Pos" type="Marker2D" parent="CraftingUI/TrayBackground"]
+position = Vector2(250, 130)
+
+[node name="Slot2_Pos" type="Marker2D" parent="CraftingUI/TrayBackground"]
+position = Vector2(750, 130)
+
+[node name="CurrentPotionA" type="TextureRect" parent="CraftingUI"]
+visible = false
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.405
+anchor_right = 0.446
+anchor_bottom = 0.533
+offset_top = -130.0
+offset_right = 40.0
+offset_bottom = -544.0
+scale = Vector2(0.09, 0.09)
+texture = ExtResource("9_j40tv")
+
+[node name="CurrentPotionB" type="TextureRect" parent="CraftingUI"]
+visible = false
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.568
+anchor_right = 0.649
+anchor_bottom = 0.533
+offset_top = -130.0
+offset_right = 240.32007
+offset_bottom = 644.0
+scale = Vector2(0.09, 0.09)
+texture = ExtResource("10_6pl24")
+
+[node name="CraftButton" type="TextureButton" parent="CraftingUI"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -423.0
+offset_top = -148.0
+offset_right = 250.0
+offset_bottom = 525.0
+grow_horizontal = 0
+grow_vertical = 0
+scale = Vector2(0.15, 0.15)
+texture_normal = ExtResource("9_yrli1")
