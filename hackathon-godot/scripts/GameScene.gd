@@ -1,217 +1,414 @@
-# res://scripts/GameScene.gd - PotionManager 최종 버전 반영
-
+# res://scripts/GameScene.gd
 extends Control
 
-# Autoload 싱글톤 참조 (class_name 사용)
-# PotionManager는 Autoload로 설정되어야 합니다.
-const SceneRouter = preload("res://scripts/system/SceneRouter.gd") 
-const PotionManager = preload("res://scripts/system/PotionManager.gd") 
+# =========================================
+# =============== Export ===================
+# =========================================
+@export_group("Timer / Score")
+@export var ROUND_TIME := 90.0
 
-# 재료 ID 대신 문자열 이름을 사용하도록 변경 (PotionManager의 규약 반영)
-const INGREDIENT_NAMES = {
-    "Red": "res://assets/Art/04_Items/potion_red.png",
-    "Blue": "res://assets/Art/04_Items/potion_blue.png",
-    "Yellow": "res://assets/Art/04_Items/potion_yellow.png",
-}
+@export_group("Shelf Buttons")
+@export var shelf_button_size := Vector2(64, 64)
+@export var shelf_button_gap := 8.0
+# 버튼에 쓸 텍스처(없으면 텍스트 버튼으로 표시)
+@export var tex_red: Texture2D
+@export var tex_blue: Texture2D
+@export var tex_yellow: Texture2D
 
-# 노드 경로 단축
-@onready var score_label = $HUD_Layer/TopBar/Coin_Panel/ScoreLabel 
-@onready var time_bar = $HUD_Layer/TopBar/TimeBar 
-@onready var pause_button = $HUD_Layer/TopBar/PauseButton
-@onready var recipe_button = $InteractionArea/RecipeButton 
-@onready var shelf_area = $InteractionArea/ShelfArea 
+@export_group("UI / Icons (Optional)")
+@export var tex_pause: Texture2D      # 없어도 동작
+@export var tex_recipe_icon: Texture2D
 
-@onready var craft_button = $CraftingUI/CraftButton
-@onready var potion_a = $CraftingUI/CurrentPotionA 
-@onready var potion_b = $CraftingUI/CurrentPotionB 
-@onready var slot1_pos = $CraftingUI/TrayBackground/Slot1_Pos 
-@onready var slot2_pos = $CraftingUI/TrayBackground/Slot2_Pos 
+@export_group("Customers")
+@export var customer_textures: Array[Texture2D] = []  # 랜덤 손님 외형
 
-var current_time = 180.0 # 3분 = 180초
-var current_coins = 0
+# =========================================
+# ============== Node Cache ===============
+# =========================================
+@onready var Background: TextureRect      = $Background
+@onready var HUD_Layer: CanvasLayer       = $HUD_Layer
+@onready var TopBar: HBoxContainer        = $HUD_Layer/TopBar
+@onready var PauseButton: TextureButton   = $HUD_Layer/TopBar/PauseButton
 
-# =======================================================
-# 초기화 및 준비
-# =======================================================
+@onready var InteractionArea: Control     = $InteractionArea
+@onready var CustomerSprite: Sprite2D     = $InteractionArea/CustomerSprite
+@onready var BubbleArea: TextureRect      = $InteractionArea/BubbleArea
+@onready var RecipeButton: TextureButton  = $InteractionArea/RecipeButton
 
-func _ready():
-    print("[LOGIC] 게임 씬 초기화 시작")
+@onready var CraftingUI: Control          = $CraftingUI
+@onready var TrayBackground: TextureRect  = $CraftingUI/TrayBackground
+@onready var Slot1_Pos: Marker2D          = $CraftingUI/TrayBackground/Slot1_Pos
+@onready var Slot2_Pos: Marker2D          = $CraftingUI/TrayBackground/Slot2_Pos
+@onready var CurrentPotionA: TextureRect  = $CraftingUI/CurrentPotionA
+@onready var CurrentPotionB: TextureRect  = $CraftingUI/CurrentPotionB
+@onready var CraftButton: TextureButton   = $CraftingUI/CraftButton
 
-    # 1. HUD 초기화
-    _update_score_display(current_coins)
-    time_bar.max_value = 180.0
-    
-    # 2. 버튼 신호 연결 (에디터에서 수동 연결 필요!)
-    pause_button.pressed.connect(_on_PauseButton_pressed)
-    recipe_button.pressed.connect(_on_RecipeButton_pressed)
-    craft_button.pressed.connect(_on_craft_button_pressed)
-    
-    # 3. PotionManager 시그널 연결 (가장 중요!)
-    PotionManager.ingredient_added.connect(_on_ingredient_added)
-    PotionManager.tray_cleared.connect(_on_tray_cleared)
-    PotionManager.potion_craft_success.connect(_on_potion_craft_success)
-    PotionManager.potion_craft_fail.connect(_on_potion_craft_fail)
-    # PotionManager.ingredient_removed.connect(_on_ingredient_removed) # 제거 기능 구현 시 연결
-    
-    # 4. 재료 선반 초기화
-    _initialize_shelf_buttons()
-    
-    # 5. 첫 손님 등장 (로직만 표시)
-    _spawn_new_customer()
+@onready var _timer_panel := TopBar.get_node_or_null("VBoxContainer/Timer_Panel") as TextureRect
+@onready var _coin_panel  := TopBar.get_node_or_null("VBoxContainer/Coin_Panel") as TextureRect
+
+# 동적 생성 노드
+var _timer_label: Label
+var _coin_label: Label
+var _order_label: Label                     # 말풍선 안의 주문 텍스트
+var _shelf_container: Node2D                # 선반 버튼 부모
+
+# =========================================
+# ============== Game State ===============
+# =========================================
+var time_left := 0.0
+var coins := 0
+var current_order := ""                     # 손님 주문(결과 포션 이름)
+
+# PotionManager 인스턴스 (팀원 코드 사용)
+const PotionManagerClass = preload("res://scripts/system/PotionManager.gd")
+var PM: PotionManagerClass
+
+# =========================================
+# ================= Ready =================
+# =========================================
+func _ready() -> void:
+	# PotionManager 생성/부착
+	PM = PotionManagerClass.new()
+	add_child(PM)
+
+	# PM 시그널 연결
+	PM.potion_craft_success.connect(_on_potion_craft_success)
+	PM.potion_craft_fail.connect(_on_potion_craft_fail)
+	PM.ingredient_added.connect(_on_ingredient_added)
+	PM.ingredient_removed.connect(_on_ingredient_removed)
+	PM.tray_cleared.connect(_on_tray_cleared)
+
+	# HUD 라벨 준비
+	_setup_hud_labels()
+
+	# 버튼 핸들러
+	if tex_pause: PauseButton.texture_normal = tex_pause
+	PauseButton.pressed.connect(_on_pause_pressed)
+
+	if tex_recipe_icon: RecipeButton.texture_normal = tex_recipe_icon
+	RecipeButton.pressed.connect(_on_recipe_pressed)
+
+	CraftButton.pressed.connect(_on_craft_pressed)
+
+	# 선반 버튼 생성(빨/파/노)
+	_build_shelf_buttons()
+
+	# 초기 타이머/코인
+	time_left = ROUND_TIME
+	_update_timer_label()
+	_update_coin_label()
+
+	# 첫 손님 소환
+	_spawn_customer_and_order()
+
+	# 말풍선 안 주문 라벨 준비
+	_prepare_order_label()
+
+func _process(delta: float) -> void:
+	if get_tree().paused: return
+
+	time_left = max(0.0, time_left - delta)
+	_update_timer_label()
+
+	# 10초 경고: 시각 효과(깜빡임)
+	if int(time_left) == 10:
+		_blink_label(_timer_label)
+
+	if time_left <= 0.0:
+		_end_game()
+
+# =========================================
+# ================ HUD ====================
+# =========================================
+func _setup_hud_labels() -> void:
+	# Timer
+	if _timer_panel:
+		_timer_label = _timer_panel.get_node_or_null("TimerLabel") as Label
+		if _timer_label == null:
+			_timer_label = Label.new()
+			_timer_label.name = "TimerLabel"
+			_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			_timer_label.size_flags_horizontal = Control.SIZE_EXPAND
+			_timer_label.size_flags_vertical = Control.SIZE_EXPAND
+			_timer_label.text = "90"
+			_timer_panel.add_child(_timer_label)
+
+	# Coins
+	if _coin_panel:
+		_coin_label = _coin_panel.get_node_or_null("CoinLabel") as Label
+		if _coin_label == null:
+			_coin_label = Label.new()
+			_coin_label.name = "CoinLabel"
+			_coin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_coin_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			_coin_label.size_flags_horizontal = Control.SIZE_EXPAND
+			_coin_label.size_flags_vertical = Control.SIZE_EXPAND
+			_coin_label.text = "Coins: 0"
+			_coin_panel.add_child(_coin_label)
+
+func _update_timer_label() -> void:
+	if _timer_label:
+		_timer_label.text = str(int(ceil(time_left)))
+
+func _update_coin_label() -> void:
+	if _coin_label:
+		_coin_label.text = "Coins: %d" % coins
+
+func _blink_label(label: Label) -> void:
+	if label == null: return
+	var tw := create_tween()
+	tw.tween_property(label, "modulate:a", 0.2, 0.15).from(1.0)
+	tw.tween_property(label, "modulate:a", 1.0, 0.15)
+
+# =========================================
+# ============== Shelf Buttons ============
+# =========================================
+func _build_shelf_buttons() -> void:
+	# 컨테이너 생성
+	_shelf_container = Node2D.new()
+	_shelf_container.name = "ShelfButtons"
+	InteractionArea.add_child(_shelf_container)
+
+	var colors := [
+		{"name":"Red", "tex":tex_red},
+		{"name":"Blue","tex":tex_blue},
+		{"name":"Yellow","tex":tex_yellow}
+	]
+
+	var x := 32.0
+	var y := get_viewport_rect().size.y - (shelf_button_size.y + 32.0)  # 화면 하단 근처
+	for item in colors:
+		var btn := TextureButton.new()
+		btn.custom_minimum_size = shelf_button_size
+		btn.position = Vector2(x, y)
+		if item.tex:
+			btn.texture_normal = item.tex
+			btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		else:
+			# 텍스처 없으면 텍스트 버튼 대체
+			var b := Button.new()
+			b.text = item.name
+			b.position = Vector2(x, y)
+			b.custom_minimum_size = shelf_button_size
+			b.pressed.connect(_on_ingredient_button_pressed.bind(item.name))
+			InteractionArea.add_child(b)
+			x += shelf_button_size.x + shelf_button_gap
+			continue
+
+		btn.pressed.connect(_on_ingredient_button_pressed.bind(item.name))
+		_shelf_container.add_child(btn)
+		x += shelf_button_size.x + shelf_button_gap
+
+func _on_ingredient_button_pressed(ing_name: String) -> void:
+	# 팀원 코드: add_ingredient(ingredient_name: String)
+	PM.add_ingredient(ing_name)
+
+# =========================================
+# ============ Tray / Selection ===========
+# =========================================
+func _on_ingredient_added(ing_name: String, tray_size: int) -> void:
+	# CurrentPotionA / B 표시 갱신
+	if tray_size == 1:
+		_set_current_potion(CurrentPotionA, ing_name, true)
+	elif tray_size == 2:
+		_set_current_potion(CurrentPotionB, ing_name, true)
+
+func _on_ingredient_removed(ing_name: String, tray_size: int, index: int) -> void:
+	# index: 제거된 슬롯 인덱스
+	if index == 0:
+		_set_current_potion(CurrentPotionA, "", false)
+		# B가 앞으로 당겨졌다고 가정하여 재표시(간단화)
+		_copy_tex(CurrentPotionB, CurrentPotionA)
+		_set_current_potion(CurrentPotionB, "", false)
+	elif index == 1:
+		_set_current_potion(CurrentPotionB, "", false)
+
+func _on_tray_cleared() -> void:
+	_set_current_potion(CurrentPotionA, "", false)
+	_set_current_potion(CurrentPotionB, "", false)
+
+func _set_current_potion(node: TextureRect, ing_name: String, visible_state: bool) -> void:
+	node.visible = visible_state
+	if not visible_state:
+		return
+	# 버튼 텍스처를 그대로 재사용(없으면 유지)
+	match ing_name:
+		"Red":
+			if tex_red: node.texture = tex_red
+		"Blue":
+			if tex_blue: node.texture = tex_blue
+		"Yellow":
+			if tex_yellow: node.texture = tex_yellow
+		_:
+			# 혹시 레시피에 특수케이스가 있으면 그대로 둠
+			pass
+
+# 두 TextureRect 간 텍스처 복사
+func _copy_tex(from: TextureRect, to: TextureRect) -> void:
+	to.texture = from.texture
+	to.visible = from.visible
+
+# =========================================
+# ============== Crafting =================
+# =========================================
+func _on_craft_pressed() -> void:
+	PM.craft_potion()   # 판정은 PM이 하고, 결과는 시그널로 수신
+
+# 팀원 시그널: 성공(포션 이름 문자열) / 실패
+func _on_potion_craft_success(potion_name: String) -> void:
+	_show_crafted_popup(potion_name)
+
+func _on_potion_craft_fail() -> void:
+	_show_crafted_popup("Fail")  # 실패 팝업도 동일 UI로 처리
+
+# 결과 팝업(간단)
+func _show_crafted_popup(result_name: String) -> void:
+	var dim := ColorRect.new()
+	dim.name = "CraftResultDim"
+	dim.color = Color(0,0,0,0.5)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.size = get_viewport_rect().size
+	$TopLayer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND
+	center.size_flags_vertical = Control.SIZE_EXPAND
+	dim.add_child(center)
+
+	var panel := Panel.new()
+	panel.custom_minimum_size = Vector2(240, 220)
+	center.add_child(panel)
+
+	var vb := VBoxContainer.new()
+	vb.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.size_flags_horizontal = Control.SIZE_EXPAND
+	vb.size_flags_vertical = Control.SIZE_EXPAND
+	panel.add_child(vb)
+
+	var icon := TextureRect.new()
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.custom_minimum_size = Vector2(160, 140)
+	icon.texture = _guess_texture_for_result(result_name)
+	vb.add_child(icon)
+
+	var label := Label.new()
+	label.text = result_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(label)
+
+	dim.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_evaluate_result_and_close(result_name, dim)
+	)
+
+func _guess_texture_for_result(name: String) -> Texture2D:
+	# 간단 매핑: 결과 이름이 기본 재료명과 같을 수도 있음
+	match name:
+		"Red":    return tex_red
+		"Blue":   return tex_blue
+		"Yellow": return tex_yellow
+		_:        return null  # 혼합 결과 이미지는 필요 시 확장
+
+func _evaluate_result_and_close(result_name: String, pop: Control) -> void:
+	if result_name == current_order:
+		coins += 100
+		_update_coin_label()
+		_spawn_customer_and_order()
+	else:
+		_spawn_customer_and_order()
+	pop.queue_free()
+
+# =========================================
+# ============ Customer / Order ===========
+# =========================================
+func _spawn_customer_and_order() -> void:
+	# 손님 스킨
+	if customer_textures.size() > 0:
+		CustomerSprite.texture = customer_textures[randi() % customer_textures.size()]
+
+	# 주문은 PM의 레시피 값에서 랜덤 추출 + 단일 재료(선택 사항)
+	var orders := _collect_possible_orders()
+	if orders.is_empty():
+		current_order = "Red"  # 안전장치
+	else:
+		current_order = orders[randi() % orders.size()]
+
+	_show_order_text(current_order)
+
+func _collect_possible_orders() -> Array[String]:
+	var set: Dictionary[String, bool] = {}
+
+    # 딕셔너리 타입을 로컬에서 고정
+	var rec: Dictionary[String, String] = PM.recipes
+
+	for k: String in rec.keys():
+		var v: String = rec[k]        # ← 이제 타입 확정
+		set[v] = true
+
+    # 단일 재료도 주문에 포함
+	set["Red"] = true
+	set["Blue"] = true
+	set["Yellow"] = true
+
+	var arr: Array[String] = []
+	for n: String in set.keys():
+		arr.append(n)
+	return arr
 
 
-# =======================================================
-# 게임 루프 (타이머)
-# =======================================================
 
-func _process(delta):
-    if get_tree().paused:
-        return
+func _prepare_order_label() -> void:
+	_order_label = BubbleArea.get_node_or_null("OrderLabel") as Label
+	if _order_label == null:
+		_order_label = Label.new()
+		_order_label.name = "OrderLabel"
+		_order_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_order_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_order_label.size_flags_horizontal = Control.SIZE_EXPAND
+		_order_label.size_flags_vertical = Control.SIZE_EXPAND
+		BubbleArea.add_child(_order_label)
 
-    # 시간 감소 로직
-    if current_time > 0:
-        current_time -= delta
-        time_bar.value = current_time
-        _check_time_critical()
-    else:
-        current_time = 0
-        time_bar.value = 0
-        _game_over()
+func _show_order_text(txt: String) -> void:
+	BubbleArea.visible = true
+	if _order_label == null:
+		_prepare_order_label()
+	_order_label.text = txt
 
-# 10초 남았을 때 체크
-func _check_time_critical():
-    if current_time <= 10.0 and time_bar.modulate != Color.RED:
-        time_bar.modulate = Color.RED # 시각적 경고
+# =========================================
+# ========== Pause / Recipe Popup =========
+# =========================================
+func _on_pause_pressed() -> void:
+	get_tree().paused = true
+	if has_node("/root/SceneRouter"):
+		get_node("/root/SceneRouter").show_pause_popup()
+	else:
+		print("[Pause] open (router not found)")
 
+func _on_recipe_pressed() -> void:
+	if has_node("/root/SceneRouter"):
+		var list := _recipe_list_for_popup()
+		get_node("/root/SceneRouter").show_recipe_book(list)
+	else:
+		print("[Recipe] open (router not found)")
 
-# =======================================================
-# UI 업데이트 및 관리
-# =======================================================
+func _recipe_list_for_popup() -> Array[String]:
+	var lines: Array[String] = []
+	for k in PM.recipes.keys():
+		lines.append("%s → %s" % [k, String(PM.recipes[k])])
+	return lines
 
-func _update_score_display(score):
-    score_label.text = "Coins: " + str(score)
-
-func _clear_tray_ui():
-    potion_a.visible = false
-    potion_b.visible = false
-    potion_a.texture = null
-    potion_b.texture = null
-
-func _spawn_new_customer():
-    print("[LOGIC] 손님 등장 로직 실행")
-    # 손님 캐릭터 표시 로직 구현 필요
-
-# =======================================================
-# 입력 및 상호작용 로직
-# =======================================================
-
-# 재료 버튼 동적 생성 (INGREDIENT_NAMES 기반)
-func _initialize_shelf_buttons():
-    var x_start = 50 # 선반 영역 시작 x 좌표 (수동 조정 필요)
-    var y_pos = 50 
-    
-    for name in INGREDIENT_NAMES:
-        var button = TextureButton.new()
-        var texture = load(INGREDIENT_NAMES[name])
-        
-        button.texture_normal = texture 
-        button.texture_pressed = texture
-        button.position = Vector2(x_start, y_pos)
-        button.set_custom_minimum_size(Vector2(64, 64))
-        
-        # 버튼 클릭 시 _on_ingredient_pressed 함수 호출 연결
-        button.pressed.connect(_on_ingredient_pressed.bind(name, texture))
-        
-        shelf_area.add_child(button)
-        y_pos += 100
-
-
-func _on_ingredient_pressed(ingredient_name: String, texture: Texture2D):
-    print("[LOGIC] 재료 선택: ", ingredient_name)
-    
-    # PotionManager의 재료 추가 함수 호출
-    PotionManager.add_ingredient(ingredient_name)
-
-
-func _on_craft_button_pressed():
-    print("[LOGIC] 제작 버튼 클릭")
-    
-    # PotionManager에 포션 제작 요청
-    PotionManager.craft_potion()
-    
-    # 제작 요청 후 제작 중에는 버튼 비활성화
-    craft_button.disabled = true
-
-
-func _on_PauseButton_pressed():
-    print("[LOGIC] 일시정지 버튼 클릭")
-    SceneRouter.show_pause_popup()
-    get_tree().paused = true
-
-
-func _on_RecipeButton_pressed():
-    print("[LOGIC] 레시피 버튼 클릭")
-    
-    # PotionManager의 레시피 데이터를 가져와서 팝업에 전달 (recipes는 Dictionary)
-    var recipe_data = PotionManager.recipes # PotionManager의 공개 변수 사용
-    SceneRouter.show_recipe_book(recipe_data) 
-    get_tree().paused = true
-    
-
-# =======================================================
-# PotionManager 시그널 수신 (UI 업데이트)
-# =======================================================
-
-# 재료가 트레이에 추가되었을 때 호출됨
-func _on_ingredient_added(ingredient_name: String, tray_size: int):
-    var texture = load(INGREDIENT_NAMES[ingredient_name])
-    
-    # 트레이에 포션 시각화
-    if tray_size == 1:
-        potion_a.texture = texture
-        potion_a.visible = true
-        # 포션 위치 조정
-        potion_a.global_position = slot1_pos.global_position - potion_a.size * 0.5
-    elif tray_size == 2:
-        potion_b.texture = texture
-        potion_b.visible = true
-        # 포션 위치 조정
-        potion_b.global_position = slot2_pos.global_position - potion_b.size * 0.5
-
-
-# 트레이가 비워졌을 때 호출됨 (제작 후, 또는 초기화 시)
-func _on_tray_cleared():
-    _clear_tray_ui()
-    craft_button.disabled = false # 제작 완료 또는 실패 시 버튼 활성화
-
-
-# 포션 제작 성공 시 호출됨
-func _on_potion_craft_success(potion_name: String):
-    print("[LOGIC] 포션 제작 성공: ", potion_name)
-    # B 프론트엔드에게 성공한 포션으로 팝업을 띄우도록 요청
-    SceneRouter.show_result_potion_popup(potion_name) 
-    # 제작 후에는 트레이가 자동으로 비워지므로, _on_tray_cleared가 호출됨
-
-
-# 포션 제작 실패 시 호출됨
-func _on_potion_craft_fail():
-    print("[LOGIC] 포션 제작 실패 (알 수 없는 조합)")
-    # B 프론트엔드에게 실패 팝업을 띄우도록 요청
-    SceneRouter.show_result_potion_popup("실패")
-    # 제작 후에는 트레이가 자동으로 비워지므로, _on_tray_cleared가 호출됨
-    
-
-# =======================================================
-# 게임 종료
-# =======================================================
-
-func _game_over():
-    print("[LOGIC] 게임 오버")
-    
-    var result = {
-        "coins": current_coins,
-        "customers": 0,
-        "elapsed": 180.0
-    }
-    
-    SceneRouter.show_end_screen(result)
+# =========================================
+# ================ End Game ===============
+# =========================================
+func _end_game() -> void:
+	get_tree().paused = true
+	var result := {
+		"coins": coins,
+		"customers": 0,
+		"elapsed": ROUND_TIME
+	}
+	if has_node("/root/SceneRouter"):
+		get_node("/root/SceneRouter").show_end_screen(result)
+	else:
+		print("[End] ", result)

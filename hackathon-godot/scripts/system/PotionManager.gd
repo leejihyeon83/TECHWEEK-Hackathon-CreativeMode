@@ -36,7 +36,7 @@ func load_recipes() -> void:
         push_warning("Failed to open recipes.json")
         return
 
-    # ⬇️ 핵심: Variant로 '명시'하고, 이후 is/cast로 분기
+    # 핵심: Variant로 '명시'하고, 이후 is/cast로 분기
     var data: Variant = JSON.parse_string(file.get_as_text())
 
     if data is Dictionary:
