@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://7yjqepx143m"]
+[gd_scene load_steps=12 format=3 uid="uid://q8yklu6l3k5x"]
 
 [ext_resource type="Texture2D" uid="uid://crji0t6mtg4gv" path="res://assets/Art/02_Backgrounds/background_play_1.jpg" id="1_6ytau"]
 [ext_resource type="Texture2D" uid="uid://c38ih1h3ukdi1" path="res://assets/Art/03_UI/UI_empty_button.png" id="2_vijgj"]
