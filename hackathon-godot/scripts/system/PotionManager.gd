@@ -1,5 +1,5 @@
 extends Node
-class_name PotionManager   # 이 스크립트를 "PotionManager"라는 이름으로 등록 (다른 곳에서 편하게 사용 가능)
+
 
 # ===== 시그널 정의 =====
 signal potion_craft_success(potion_name: String)   # 포션 제작 성공 시 포션 이름을 전달

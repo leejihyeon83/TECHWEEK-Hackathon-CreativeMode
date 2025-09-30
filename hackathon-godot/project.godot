@@ -14,6 +14,10 @@ config/name="hackathon_godot"
 config/features=PackedStringArray("4.5", "Mobile")
 config/icon="res://icon.svg"
 
+[autoload]
+
+PotionManager="*res://scripts/system/PotionManager.gd"
+
 [display]
 
 window/size/viewport_width=1280
