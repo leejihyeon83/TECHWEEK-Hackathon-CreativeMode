@@ -1,0 +1,41 @@
+[gd_scene load_steps=3 format=3 uid="uid://bye4ge7qo6kki"]
+
+[ext_resource type="Texture2D" uid="uid://dck701c23xv58" path="res://assets/Art/02_Backgrounds/background_intro_2.jpg" id="1_4ga5j"]
+[ext_resource type="Texture2D" uid="uid://uhsosflplmda" path="res://assets/Art/03_UI/UI_back_button.png" id="2_3tcff"]
+
+[node name="Recipe" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="bg" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.67
+anchor_top = 1.0
+anchor_right = 1.505
+anchor_bottom = 1.0
+offset_left = 1192.0
+offset_top = 360.0
+offset_right = 628.0
+offset_bottom = 690.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.7, 0.7)
+texture = ExtResource("1_4ga5j")
+
+[node name="recipe" type="TextureRect" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="back" type="TextureButton" parent="."]
+layout_mode = 0
+offset_left = 53.0
+offset_top = 35.00001
+offset_right = 726.0
+offset_bottom = 708.0
+scale = Vector2(0.2, 0.2)
+button_mask = 7
+texture_normal = ExtResource("2_3tcff")
