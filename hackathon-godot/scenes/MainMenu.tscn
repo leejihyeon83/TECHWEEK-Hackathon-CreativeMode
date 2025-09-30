@@ -1,0 +1,66 @@
+[gd_scene load_steps=7 format=3 uid="uid://d17k25sqtxks7"]
+
+[ext_resource type="Script" uid="uid://jjomiydqbqcd" path="res://scripts/main_menu.gd" id="1_826wr"]
+[ext_resource type="Texture2D" uid="uid://dya7kepfrw8c" path="res://assets/Art/02_Backgrounds/background_intro_1.jpg" id="1_yqorp"]
+[ext_resource type="Texture2D" uid="uid://bcogdpdwhu422" path="res://assets/Art/03_UI/UI_title.png" id="2_0ykhv"]
+[ext_resource type="Texture2D" uid="uid://cwhggtcsfhxbe" path="res://assets/Art/03_UI/UI_start_button.png" id="3_2wh52"]
+[ext_resource type="AudioStream" uid="uid://wt2pbqcilv2q" path="res://assets/Audio/Music/1_intro_sound.mp3" id="4_ow34m"]
+[ext_resource type="AudioStream" uid="uid://ba0ovv83a3wc" path="res://assets/Audio/SFX/UI/3_UI_button_click.mp3" id="5_l72w3"]
+
+[node name="mainmenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1, 1.2262918)
+script = ExtResource("1_826wr")
+
+[node name="bg" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -144.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_yqorp")
+stretch_mode = 6
+
+[node name="center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.128
+anchor_top = 0.094
+anchor_right = 1.0
+anchor_bottom = 0.094
+offset_right = 779.83997
+offset_bottom = 502.0
+scale = Vector2(0.5, 0.5)
+
+[node name="VBox" type="VBoxContainer" parent="center"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="logo" type="TextureRect" parent="center/VBox"]
+layout_mode = 2
+size_flags_horizontal = 0
+texture = ExtResource("2_0ykhv")
+
+[node name="startBtn" type="TextureButton" parent="center/VBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+button_mask = 7
+keep_pressed_outside = true
+texture_normal = ExtResource("3_2wh52")
+
+[node name="BGM" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("4_ow34m")
+volume_db = 24.0
+pitch_scale = 0.77
+autoplay = true
+
+[node name="click" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("5_l72w3")
+volume_db = 10.065
