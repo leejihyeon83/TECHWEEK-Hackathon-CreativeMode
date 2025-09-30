@@ -140,3 +140,8 @@ func check_potion_delivery(delivered_potion: String):
 
 	# 정답이든 아니든, 다음 손님을 즉시 소환합니다.
 	spawn_customer()
+
+	
+func _on_potion_manager_potion_craft_success(potion_name: String):
+	# PotionManager가 보내준 포션 이름을 그대로 check_potion_delivery 함수에 전달합니다.
+	check_potion_delivery(potion_name)
